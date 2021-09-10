@@ -1,0 +1,68 @@
+version: "3.9"
+services:
+  redis:
+    image: docker.io/bitnami/redis:6.2
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    ports:
+      - '6379:6379'
+    volumes:
+      - 'redis_data:/bitnami/redis/data'
+
+  web:
+    container_name: web
+    init: true
+    build:
+      context: web
+      dockerfile: Dockerfile
+    restart: 'always'
+    ports:
+      - 80:80
+    depends_on:
+      - mysql
+    networks:
+      - laortas
+    healthcheck:
+      test: curl -sS http://127.0.0.1 || echo 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+     
+  mysql:
+    container_name: mysql
+    init: true
+    image: mariadb:10.6.2-focal
+    restart: 'always'
+    ports:
+      - 3306:3306
+    networks:
+      - laortas
+    volumes:
+      - ./mysql/mysql-table:/docker-entrypoint-initdb.d
+      - ./mysql/mysql.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    env_file:
+      - .env
+
+volumes:
+  mysql:
+    name: mysql-data
+ 
+volumes:
+  redis_data:
+    driver: local    
+
+networks:
+  laortas:
+    name: laortas
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
